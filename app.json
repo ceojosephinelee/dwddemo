@@ -1,15 +1,6 @@
 {
   "expo": {
-    "ios": {
-      
-      "infoPlist": {
-        
-        "UIBackgroundModes": [
-          "location",
-          "fetch"
-        ]
-      }
-    },
+   
     "plugins": [
       [
         "expo-notifications",
