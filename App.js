@@ -1,114 +1,106 @@
-import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
-import React, { useState, useEffect, useRef } from "react";
-import { Text, View, Button, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  Text,
+  View,
+  StyleSheet,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
+import axios from "axios";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+import * as Location from "expo-location";
+
+const wait = (timeout) => {
+  return new Promise((resolve) => setTimeout(resolve, timeout));
+};
 
 export default function App() {
-  const [expoPushToken, setExpoPushToken] = useState("");
-  const [notification, setNotification] = useState(false);
-  const notificationListener = useRef();
-  const responseListener = useRef();
+  const [location, setLocation] = useState(null);
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [address, setAddress] = useState(null);
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  useEffect(() => {
-    registerForPushNotificationsAsync().then((token) =>
-      setExpoPushToken(token)
-    );
-
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
-        setNotification(notification);
-      });
-
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log(response);
-      });
-
-    return () => {
-      Notifications.removeNotificationSubscription(
-        notificationListener.current
-      );
-      Notifications.removeNotificationSubscription(responseListener.current);
-    };
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    wait(2000).then(() => setRefreshing(false));
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMsg("Permission to access location was denied");
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setLocation(location);
+      setLatitude(location.coords.latitude);
+      setLongitude(location.coords.longitude);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (longitude) {
+      axios
+        .get(
+          `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}&input_coord=WGS84`,
+          {
+            headers: {
+              Authorization: "KakaoAK e16d179db5aaa0f8b17f0e458a26fdd7",
+            },
+          }
+        )
+        .then((res) => {
+          let test_text = JSON.stringify(res.data.documents[0]);
+          setAddress(test_text);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    }
+  }, [longitude, latitude]);
+
+  let text = "Waiting..";
+  if (errorMsg) {
+    text = errorMsg;
+  } else if (location) {
+    text = JSON.stringify(location.coords);
+  }
+
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "space-around",
-      }}
-    >
-      <Text>Your expo push token: {expoPushToken}</Text>
-      <View style={{ alignItems: "center", justifyContent: "center" }}>
-        <Text>
-          Title: {notification && notification.request.content.title}{" "}
-        </Text>
-        <Text>Body: {notification && notification.request.content.body}</Text>
-        <Text>
-          Data:{" "}
-          {notification && JSON.stringify(notification.request.content.data)}
-        </Text>
-      </View>
-      <Button
-        title="Press to schedule a notification"
-        onPress={async () => {
-          await schedulePushNotification();
-        }}
-      />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <Text style={styles.paragraph}>{address}</Text>
+        <Text>Pull down to 새로고침</Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-async function schedulePushNotification() {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "You've got mail! 📬",
-      body: "Here is the notification body",
-      data: { data: "goes here" },
-    },
-    trigger: { seconds: 2 },
-  });
-}
-
-async function registerForPushNotificationsAsync() {
-  let token;
-
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#FF231F7C",
-    });
-  }
-
-  if (Device.isDevice) {
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== "granted") {
-      alert("Failed to get push token for push notification!");
-      return;
-    }
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log(token);
-  } else {
-    alert("Must use physical device for Push Notifications");
-  }
-
-  return token;
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  paragraph: {
+    fontSize: 18,
+    textAlign: "center",
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: "pink",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
