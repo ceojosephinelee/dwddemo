@@ -1,19 +1,8 @@
 import React, { useState, useEffect } from "react";
-import {
-  Text,
-  View,
-  StyleSheet,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-} from "react-native";
+import { Text, View, StyleSheet } from "react-native";
 import axios from "axios";
 
 import * as Location from "expo-location";
-
-const wait = (timeout) => {
-  return new Promise((resolve) => setTimeout(resolve, timeout));
-};
 
 export default function App() {
   const [location, setLocation] = useState(null);
@@ -21,12 +10,6 @@ export default function App() {
   const [longitude, setLongitude] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [address, setAddress] = useState(null);
-  const [refreshing, setRefreshing] = React.useState(false);
-
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    wait(2000).then(() => setRefreshing(false));
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -72,17 +55,10 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <Text style={styles.paragraph}>{address}</Text>
-        <Text>Pull down to 새로고침</Text>
-      </ScrollView>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <Text style={styles.paragraph}>{address}</Text>
+      <Text>새로고침: shake and reload </Text>
+    </View>
   );
 }
 
@@ -97,10 +73,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: "center",
   },
-  scrollView: {
-    flex: 1,
-    backgroundColor: "pink",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+
 });
